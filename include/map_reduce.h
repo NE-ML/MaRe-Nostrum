@@ -37,6 +37,11 @@ namespace mare_nostrum {
 
     private:
         // YOUR CODE HERE
+        std::string tmp_dir_;
+        std::string output_dir_;
+        std::vector<std::string> input_files_;
+        std::size_t max_simultaneous_workers_;
+        std::size_t num_reducers_;
     };
 }
 
