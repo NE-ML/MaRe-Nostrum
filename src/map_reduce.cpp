@@ -1,8 +1,10 @@
 //
 // Created by Alexander on 17.01.2023.
 //
-#include "../include/map_reduce.h"
-// #include "map_reduce.h"
+#include <iostream>
+#include <filesystem>
+#include <fstream>
+#include "map_reduce.h"
 
 namespace mare_nostrum {
     void MapReduce::setInputFiles(const std::vector<std::string> &input_files) {
@@ -25,5 +27,40 @@ namespace mare_nostrum {
         output_dir_ = output_dir;
     }
 
+    MapReduce::MapReduce() {
 
+    }
+
+    MapReduce::~MapReduce() {
+
+    }
+
+    void MapReduce::setMapper(IMapper &mapper) {
+        mapper_ = &mapper;
+    }
+
+    void MapReduce::start() {
+        if (!std::filesystem::create_directory(tmp_dir_)) {
+            std::cerr << "Error creating temporary directory.\n";
+        }
+        mergeFiles();
+
+    }
+
+    void MapReduce::mergeFiles() {
+        std::ofstream big_file;
+        big_file.open(tmp_dir_ + big_file_);
+        for (auto input_file_name: input_files_) {
+            std::ifstream file;
+            file.open(input_file_name);
+            std::string line;
+            while (std::getline(file, line)) {
+                big_file << line << std::endl;
+            }
+            file.close();
+        }
+        big_file.close();
+
+        return;
+    }
 }
