@@ -1,6 +1,3 @@
-//
-// Created by Alexander on 17.01.2023.
-//
 #include <iostream>
 #include <filesystem>
 #include <fstream>
@@ -50,7 +47,7 @@ namespace mare_nostrum {
     void MapReduce::mergeFiles() {
         std::ofstream big_file;
         big_file.open(tmp_dir_ + big_file_);
-        for (auto input_file_name: input_files_) {
+        for (const auto &input_file_name: input_files_) {
             std::ifstream file;
             file.open(input_file_name);
             std::string line;
@@ -60,7 +57,5 @@ namespace mare_nostrum {
             file.close();
         }
         big_file.close();
-
-        return;
     }
-}
+}  // namespace mare_nostrum
