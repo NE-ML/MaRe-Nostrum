@@ -118,4 +118,11 @@ namespace mare_nostrum {
             std::function<std::vector<std::pair<std::string, int>>(const std::string &)> &mapper) {
         mapper_ = &mapper;
     }
+
+    void MapReduce::setReducer(
+            std::function<std::vector<std::string, std::string>
+                    (const std::string &, const std::vector<std::string> &)> &reducer) {
+//        reducer_ = &reducer;
+        reducer_ = &reducer;
+    }
 }  // namespace mare_nostrum

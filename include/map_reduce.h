@@ -39,7 +39,7 @@ namespace mare_nostrum {
 
         // would be fine to rewrite as template function with std::string_view and Iterable instead of std::vector
         void setReducer(std::function<std::vector<std::string, std::string>(const std::string &,
-                                                                            const std::vector<std::string> &)> reducer);
+                                                                            const std::vector<std::string> &)> &reducer);
 
         void start();
 
@@ -47,6 +47,9 @@ namespace mare_nostrum {
         // YOUR CODE HERE
         std::function<std::vector<std::pair<std::string, int>>
                       (const std::string &)>* mapper_;
+        std::function<std::vector<std::string, std::string>
+                      (const std::string &,
+                       const std::vector<std::string> &)>* reducer_;
         uintmax_t file_size_;
         std::string tmp_dir_;
         std::string output_dir_;
