@@ -1,7 +1,6 @@
-#include <unistd.h>
-#include <sys/mman.h>
-#include <thread>
 #include "map_reduce.h"
+#include "mapper.h"
+#include <thread>
 
 using namespace mare_nostrum;
 
@@ -13,6 +12,9 @@ int main() {
     obj.setInputFiles("../data/file.txt");
     obj.setMaxSimultaneousWorkers(std::thread::hardware_concurrency());
     obj.setTmpDir("/tmp/");
+//    Mapper mapper;
+    std::function<std::vector<std::pair<std::string, int>>(const std::string &)> mapper = Mapper();
+    obj.setMapper(mapper);
     obj.start();
 //    Job j;
 //    j.setInputFiles(/* список файлов */);

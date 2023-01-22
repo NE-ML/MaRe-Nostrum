@@ -6,20 +6,11 @@
 #include <functional>
 #include <utility>  // std::pair
 
-#define BLOCK_SIZE 4
+#define BLOCK_SIZE 10
 
 namespace mare_nostrum {
     class MapReduce {
     public:
-        struct IMapper {
-            virtual std::vector<std::pair<std::string, std::string>>
-            operator()(const std::string&) = 0;
-        };
-
-        struct IReducer {
-            virtual std::vector<std::pair<std::string, std::string>>
-            operator()(std::vector<std::pair<std::string, std::vector<std::string>>>) = 0;
-        };
         enum mapperStatus {
             FREE,
             BUSY
@@ -42,8 +33,7 @@ namespace mare_nostrum {
         void setTmpDir(const std::string &tmp_dir);
 
         // would be fine to replace with std::string_view
-        void setMapper(std::function<std::vector<std::pair<std::string, std::string>>
-                                     (const std::string &, const std::string &)> mapper);
+        void setMapper(std::function<std::vector<std::pair<std::string, int>>(const std::string &)> &mapper);
 
         // would be fine to rewrite as template function with std::string_view and Iterable instead of std::vector
         void setReducer(std::function<std::vector<std::string, std::string>(const std::string &,
@@ -55,7 +45,8 @@ namespace mare_nostrum {
 
     private:
         // YOUR CODE HERE
-        IMapper* mapper_;
+        std::function<std::vector<std::pair<std::string, int>>
+                      (const std::string &)>* mapper_;
         std::string tmp_dir_;
         std::string output_dir_;
         std::string big_file_ = "big_file.txt";

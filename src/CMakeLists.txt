@@ -1,6 +1,8 @@
 project(mapReduce_library)
 
-set(LIB_SRC map_reduce.cpp)
+set(LIB_SRC
+        map_reduce.cpp
+        mapper.cpp)
 
 add_library(mapReduce_lib STATIC ${LIB_SRC})
 
