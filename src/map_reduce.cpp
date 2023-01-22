@@ -2,20 +2,19 @@
 #include <vector>
 #include <thread>
 #include <filesystem>
-#include <fstream>
 #include <sys/mman.h>
-#include <stdio.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include "map_reduce.h"
 
 namespace mare_nostrum {
     void MapReduce::setInputFiles(const std::string &input_file) {
         input_file_ = input_file;
+        file_size_ = std::filesystem::file_size(input_file_);
     }
 
     void MapReduce::setMaxSimultaneousWorkers(std::size_t max_simultaneous_workers) {
         max_simultaneous_workers_ = max_simultaneous_workers;
+        mapper_status.resize(max_simultaneous_workers_, FREE);
     }
 
     void MapReduce::setNumReducers(std::size_t num_reducers) {
@@ -46,59 +45,69 @@ namespace mare_nostrum {
         if (!std::filesystem::create_directory(tmp_dir_)) {
             std::cerr << "Error creating temporary directory.\n";
         }
-        auto file_size = std::filesystem::file_size(input_file_);
-
-        int input_split = (int) (file_size / block_size);
-        if (file_size % block_size != 0) {
-            ++input_split;
-        }
 
         std::vector<std::thread> threads(max_simultaneous_workers_);
-        std::vector<int> mapper_status(max_simultaneous_workers_, FREE);
-        int descriptor = open(input_file_.c_str(), O_RDONLY);
 
-        for (size_t i = 0; i < input_split; ++i) {
+        int descriptor = open(input_file_.c_str(), O_RDONLY);
+        int offset = 0;
+
+        while (offset < file_size_) {
+            std::string split = GetSplit(descriptor, offset);
+
             int index = GetFreeMapperIndex(mapper_status);
+            if (mapper_status[index] == DONE) {
+                threads[index].join();
+            }
 
             mapper_status[index] = BUSY;
-
-            threads[index] = std::thread(&MapReduce::Map, this, descriptor, index, i);
-
-            threads[index].join();
+            threads[index] = std::thread(&MapReduce::Map, this, split, index);
         }
+
+        for (int i = 0; i < max_simultaneous_workers_; ++i) {
+            if (mapper_status[i] == BUSY || mapper_status[i] == DONE) {
+                threads[i].join();
+            }
+        }
+
+        threads.clear();
     }
 
-    // Get split from file and pass it to Mapper
-    void MapReduce::Map(const int descriptor, const int mapper_index, const int current_split) {
-        std::string split("");
-        off_t off = current_split * BLOCK_SIZE;
-        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
-        char* src = (char*)mmap(NULL, BLOCK_SIZE + off - pa_off, PROT_READ, MAP_SHARED, descriptor, pa_off);
-        std::string dst(src + off, BLOCK_SIZE);
+    std::string MapReduce::GetSplit(const int descriptor, int &offset) {
+//        off_t off = current_split * BLOCK_SIZE;
+//        off_t off = BLOCK_SIZE;
+//        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
+//        char* src = (char*)mmap(NULL, BLOCK_SIZE + off - pa_off, PROT_READ, MAP_SHARED, descriptor, pa_off);
+        char* src = (char*) mmap(NULL, 1, PROT_READ, MAP_SHARED, descriptor, 0);
+        if (offset + BLOCK_SIZE > file_size_) {
+            std::string dst(src + offset, file_size_);
+            offset += file_size_;
+            return dst;
+        }
 
-        // if no '\n' at the end of block, write data until new sym == '\n'
+        std::string dst(src + offset, BLOCK_SIZE);
         if (dst[BLOCK_SIZE - 1] != '\n') {
             int i = 0;
             do {
-                dst += src[BLOCK_SIZE + off + i];
+                dst += src[offset + BLOCK_SIZE + i];
                 ++i;
-            } while (src[BLOCK_SIZE + off + i] != '\n');
+            } while (src[offset + BLOCK_SIZE + i] != '\n' && src[offset + BLOCK_SIZE + i] != NULL);
+            offset += BLOCK_SIZE + i + 1;
         }
-        std::vector<std::pair<std::string, int>> mapper_result = (*mapper_)(dst);
+        return dst;
+    }
 
-        std::cout << "_____" << std::endl;
-        std::cout << "Mapper[" << mapper_index << "]" << std::endl;
-        std::cout << dst << std::endl;
-        for (int i = 0; i < mapper_result.size(); ++i) {
-            std::cout << mapper_result[i].first << ": " << mapper_result[i].second << std::endl;
-        }
-
+    // Get split from file and pass it to Mapper
+    void MapReduce::Map(const std::string &split, const int mapper_index) {
+        t_lock.lock();
+        mapper_result.push_back((*mapper_)(split));
+        t_lock.unlock();
+        mapper_status[mapper_index] = DONE;
         return;
     }
 
     int MapReduce::GetFreeMapperIndex(const std::vector<int> &mapper_status) {
         for (int i = 0; i < mapper_status.size(); ++i) {
-            if (mapper_status[i] == FREE) {
+            if (mapper_status[i] == FREE || mapper_status[i] == DONE) {
                 return i;
             }
         }
