@@ -9,43 +9,43 @@
 #include "map_reduce.h"
 
 namespace mare_nostrum {
-    void MapReduce::setInputFiles(const std::string &input_file) {
+    void mapReduce::setInputFiles(const std::string &input_file) {
         input_file_ = input_file;
         file_size_ = std::filesystem::file_size(input_file_);
     }
 
-    void MapReduce::setMaxSimultaneousWorkers(std::size_t max_simultaneous_workers) {
+    void mapReduce::setMaxSimultaneousWorkers(std::size_t max_simultaneous_workers) {
         max_simultaneous_workers_ = max_simultaneous_workers;
         mapper_status.resize(max_simultaneous_workers_, FREE);
         mapped_data_for_reducer.resize(max_simultaneous_workers_);
     }
 
-    void MapReduce::setNumReducers(std::size_t num_reducers) {
+    void mapReduce::setNumReducers(std::size_t num_reducers) {
         num_reducers_ = num_reducers;
         reducer_chars.resize(num_reducers_);
-        for (int i = 0; i < mapped_data_for_reducer.size(); ++i) {
-            mapped_data_for_reducer[i].resize(num_reducers_);
+        for (auto & i : mapped_data_for_reducer) {
+            i.resize(num_reducers_);
         }
-        CalculateRangeOfKeysForReducers();
+        calculateRangeOfKeysForReducers();
     }
 
-    void MapReduce::setTmpDir(const std::string &tmp_dir = "/tmp") {
+    void mapReduce::setTmpDir(const std::string &tmp_dir = "/tmp") {
         tmp_dir_ = tmp_dir;
     }
 
-    void MapReduce::setOutputDir(const std::string &output_dir) {
+    void mapReduce::setOutputDir(const std::string &output_dir) {
         output_dir_ = output_dir;
     }
 
-    MapReduce::MapReduce() {
+    mapReduce::mapReduce() {
 
     }
 
-    MapReduce::~MapReduce() {
+    mapReduce::~mapReduce() {
 
     }
 
-    void MapReduce::start() {
+    void mapReduce::start() {
         if (!std::filesystem::create_directory(tmp_dir_)) {
             std::cerr << "Error creating temporary directory.\n";
         }
@@ -56,15 +56,15 @@ namespace mare_nostrum {
         int offset = 0;
 
         while (offset < file_size_) {
-            std::string split = GetSplit(descriptor, offset);
+            std::string split = getSplit(descriptor, offset);
 
-            int index = GetFreeMapperIndex(mapper_status);
+            int index = getFreeMapperIndex(mapper_status);
             if (mapper_status[index] == DONE) {
                 threads[index].join();
             }
 
             mapper_status[index] = BUSY;
-            threads[index] = std::thread(&MapReduce::Map, this, split, index);
+            threads[index] = std::thread(&mapReduce::map, this, split, index);
         }
 
         for (int i = 0; i < max_simultaneous_workers_; ++i) {
@@ -74,27 +74,17 @@ namespace mare_nostrum {
         }
 
         threads.clear();
+   }
 
-
-//        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
-//            threads[reducer_i] = std::thread(&MapReduce::Reduce, this, reducer_i);
-//        }
-//        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
-//            threads[reducer_i].join();
-//        }
-
-        return;
-    }
-
-    std::string MapReduce::GetSplit(const int descriptor, int &offset) const {
+    std::string mapReduce::getSplit(const int descriptor, int &offset) const {
 //        off_t off = current_split * BLOCK_SIZE;
 //        off_t off = BLOCK_SIZE;
 //        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
 //        char* src = (char*)mmap(NULL, BLOCK_SIZE + off - pa_off, PROT_READ, MAP_SHARED, descriptor, pa_off);
-        char* src = (char*) mmap(NULL, BLOCK_SIZE, PROT_READ, MAP_SHARED, descriptor, 0);
+        char* src = (char*) mmap(nullptr, BLOCK_SIZE, PROT_READ, MAP_SHARED, descriptor, 0);
         if (offset + BLOCK_SIZE > file_size_) {
             std::string dst(src + offset, file_size_);
-            offset += file_size_;
+            offset += (int)file_size_;
             return dst;
         }
 
@@ -110,7 +100,7 @@ namespace mare_nostrum {
         return dst;
     }
 
-    void MapReduce::Reduce(const int reducer_index) {
+    void mapReduce::reduce(const int reducer_index) {
         // Сделать merge списков и передать в user reducer
         std::vector<std::pair<std::string, std::vector<int>>> merged_data;
         for (int mapper_i = 0; mapper_i < max_simultaneous_workers_; ++mapper_i) {
@@ -120,7 +110,7 @@ namespace mare_nostrum {
             for (auto &pair: mapped_data_for_reducer[mapper_i][reducer_index]) {
                 bool same = false;
                 for (auto &pair_in_merged_list: merged_data) {
-                    if (pair_in_merged_list.first.compare(pair.first) == 0) {
+                    if (pair_in_merged_list.first == pair.first) {
                         pair_in_merged_list.second.push_back(pair.second);
                         same = true;
                         break;
@@ -139,11 +129,9 @@ namespace mare_nostrum {
             file << pair.first << ": " << pair.second << "\n";
         }
         file.close();
+   }
 
-        return;
-    }
-
-    void MapReduce::Map(const std::string &split, const int mapper_index) {
+    void mapReduce::map(const std::string &split, int mapper_index) {
         map_type map_result = (*mapper_)(split);
         std::sort(map_result.begin(), map_result.end(),
                   [](auto &left, auto &right) {
@@ -157,8 +145,8 @@ namespace mare_nostrum {
             // Узнать, какое количество пар в диапазоне редьюсера
             auto range_end = std::count_if(map_result.begin(), map_result.end(),
                        [this, reducer_i] (auto &pair) {
-                          for (int i = 0; i < reducer_chars[reducer_i].size(); ++i) {
-                              if (pair.first[0] == reducer_chars[reducer_i][i]) {
+                          for (char & i : reducer_chars[reducer_i]) {
+                              if (pair.first[0] == i) {
                                   return true;
                               }
                           }
@@ -172,10 +160,9 @@ namespace mare_nostrum {
         }
 
         mapper_status[mapper_index] = DONE;
-        return;
-    }
+   }
 
-    int MapReduce::GetFreeMapperIndex(const std::vector<int> &mapper_status) {
+    int mapReduce::getFreeMapperIndex(const std::vector<int> &mapper_status) {
         for (int i = 0; i < mapper_status.size(); ++i) {
             if (mapper_status[i] == FREE || mapper_status[i] == DONE) {
                 return i;
@@ -184,20 +171,20 @@ namespace mare_nostrum {
         return -1;
     }
 
-    void MapReduce::setMapper(
+    void mapReduce::setMapper(
             std::function<std::vector<std::pair<std::string, int>>(const std::string &)> &mapper) {
         mapper_ = &mapper;
     }
 
-    void MapReduce::setReducer(std::function<std::vector<std::pair<std::string, int>>(const std::vector<std::pair<std::string, std::vector<int>>> &)> &reducer) {
+    void mapReduce::setReducer(std::function<std::vector<std::pair<std::string, int>>(const std::vector<std::pair<std::string, std::vector<int>>> &)> &reducer) {
         reducer_ = &reducer;
     }
 
-    void MapReduce::CalculateRangeOfKeysForReducers() {
+    void mapReduce::calculateRangeOfKeysForReducers() {
         std::vector<char> alphabet { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
                                         'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
         const int alphabet_size = 26;
-        std::vector<int> reducer_sizes(num_reducers_, alphabet_size / num_reducers_);
+        std::vector<int> reducer_sizes(num_reducers_, alphabet_size / (int)num_reducers_);
         for (int i = 0; i < alphabet_size % num_reducers_; ++i) {
             ++(reducer_sizes[i]);
         }

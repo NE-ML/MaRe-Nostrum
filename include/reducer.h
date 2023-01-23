@@ -1,7 +1,3 @@
-//
-// Created by Alexander on 23.01.2023.
-//
-
 #ifndef MARE_NOSTRUM_REDUCER_H
 #define MARE_NOSTRUM_REDUCER_H
 

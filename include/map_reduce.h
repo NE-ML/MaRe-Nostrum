@@ -10,7 +10,7 @@
 #define BLOCK_SIZE 131072
 
 namespace mare_nostrum {
-    class MapReduce {
+    class mapReduce {
     public:
         typedef std::vector<std::pair<std::string, int>> map_type;
 
@@ -20,11 +20,11 @@ namespace mare_nostrum {
             DONE
         };
 
-        MapReduce();
+        mapReduce();
 
-        explicit MapReduce(std::size_t split_size);
+        explicit mapReduce(std::size_t split_size);
 
-        ~MapReduce();
+        ~mapReduce();
 
         void setInputFiles(const std::string &input_file);
 
@@ -48,31 +48,31 @@ namespace mare_nostrum {
     private:
         // YOUR CODE HERE
         std::function<std::vector<std::pair<std::string, int>>
-                      (const std::string &)>* mapper_;
+                      (const std::string &)>* mapper_{};
         std::function<std::vector<std::pair<std::string, int>>
-                      (const std::vector<std::pair<std::string, std::vector<int>>> &)>* reducer_;
-        uintmax_t file_size_;
+                      (const std::vector<std::pair<std::string, std::vector<int>>> &)>* reducer_{};
+        uintmax_t file_size_{};
         std::string tmp_dir_;
         std::string output_dir_;
         std::string big_file_ = "big_file.txt";
         std::string input_file_;
         std::vector<int> mapper_status;                             // Current mapper state
-        std::size_t max_simultaneous_workers_;
+        std::size_t max_simultaneous_workers_{};
         std::vector<std::vector<char>> reducer_chars;               // Range of chars for each reducer
         std::vector<std::vector<std::pair<std::string, int>>> mapper_result;
         std::vector<std::vector<std::vector<std::pair<std::string, int>>>> mapped_data_for_reducer;
-        std::size_t num_reducers_;      // Number of reducers
+        std::size_t num_reducers_{};      // Number of reducers
         std::mutex t_lock;
 
-        int GetFreeMapperIndex(const std::vector<int> &mapper_status);
+        static int getFreeMapperIndex(const std::vector<int> &mapper_status);
 
-        std::string GetSplit(const int descriptor, int &offset) const;
+        std::string getSplit(int descriptor, int &offset) const;
 
-        void Map(const std::string &split, const int mapper_index);
+        void map(const std::string &split, int mapper_index);
 
-        void Reduce(const int reducer_index);
+        void reduce(int reducer_index);
 
-        void CalculateRangeOfKeysForReducers();
+        void calculateRangeOfKeysForReducers();
     };
 }
 
