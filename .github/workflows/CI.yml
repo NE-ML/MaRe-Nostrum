@@ -11,13 +11,12 @@ jobs:
           sudo apt update
           sudo apt install cmake
           sudo apt install libgtest-dev
-          sudo apt install libgmock-dev
-          sudo apt install lcov
-          sudo apt install valgrind
-          sudo apt install clang-format
-          sudo apt install cppcheck
-          sudo apt install clang-tidy
-          sudo pip install cpplint
+#          sudo apt install lcov
+#          sudo apt install valgrind
+#          sudo apt install clang-format
+#          sudo apt install cppcheck
+#          sudo apt install clang-tidy
+#          sudo pip install cpplint
 
       - name: Build project
         run: |
@@ -25,7 +24,7 @@ jobs:
           cmake -S . -B ./build/
           cmake --build ./build/
       - name: Run tests
-        run: ./test/unit/unit_tests
+        run: ./build/test/unit/unit_tests
       - name: Make report
         run: |
           lcov -t ./build/test/unit/ -o ./build/test/unit/coverage_report.info -c -d ./build/test/unit/unit_tests
