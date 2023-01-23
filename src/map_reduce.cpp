@@ -58,25 +58,25 @@ namespace mare_nostrum {
         int current_split = 0;
         while (offset < file_size_) {
             char* split = GetSplit(descriptor, offset, current_split++);
-//            int index = GetFreeMapperIndex(mapper_status);
-//            if (mapper_status[index] == DONE) {
-//                threads[index].join();
-//            }
-//            if (index == -1) {
-//                continue;
-//            }
-//
-//            mapper_status[index] = BUSY;
-//            threads[index] = std::thread(&MapReduce::Map, this, split, index);
+            int index = -1;
+            do {
+                index = GetFreeMapperIndex(mapper_status);
+            } while(index == -1);
+            if (mapper_status[index] == DONE) {
+                threads[index].join();
+            }
+
+            mapper_status[index] = BUSY;
+            threads[index] = std::thread(&MapReduce::Map, this, split, index);
         }
 
-//        for (int i = 0; i < max_simultaneous_workers_; ++i) {
-//            if (mapper_status[i] == BUSY || mapper_status[i] == DONE) {
-//                threads[i].join();
-//            }
-//        }
+        for (int i = 0; i < max_simultaneous_workers_; ++i) {
+            if (mapper_status[i] == BUSY || mapper_status[i] == DONE) {
+                threads[i].join();
+            }
+        }
 
-//        threads.clear();
+        threads.clear();
 
 
 //        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
