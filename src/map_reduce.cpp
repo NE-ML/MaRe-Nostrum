@@ -30,20 +30,12 @@ namespace mare_nostrum {
         CalculateRangeOfKeysForReducers();
     }
 
-    void MapReduce::setTmpDir(const std::string &tmp_dir = "/tmp") {
+    void MapReduce::setTmpDir(const std::string &tmp_dir = "/tmp/") {
         tmp_dir_ = tmp_dir;
     }
 
     void MapReduce::setOutputDir(const std::string &output_dir) {
         output_dir_ = output_dir;
-    }
-
-    MapReduce::MapReduce() {
-
-    }
-
-    MapReduce::~MapReduce() {
-
     }
 
     void MapReduce::start() {
@@ -60,7 +52,7 @@ namespace mare_nostrum {
             char* split = GetSplit(descriptor, offset, current_split++);
             int index = -1;
             do {
-                index = GetFreeMapperIndex(mapper_status);
+                index = GetFreeMapperIndex();
             } while(index == -1);
             if (mapper_status[index] == DONE) {
                 threads[index].join();
@@ -79,14 +71,12 @@ namespace mare_nostrum {
         threads.clear();
 
 
-//        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
-//            threads[reducer_i] = std::thread(&MapReduce::Reduce, this, reducer_i);
-//        }
-//        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
-//            threads[reducer_i].join();
-//        }
-
-        return;
+        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+            threads[reducer_i] = std::thread(&MapReduce::Reduce, this, reducer_i);
+        }
+        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+            threads[reducer_i].join();
+        }
     }
 
     char *MapReduce::GetSplit(const int descriptor, int &offset, const int current_split) const {
@@ -104,29 +94,28 @@ namespace mare_nostrum {
 
         if (src[BLOCK_SIZE - 1] != '\n') {
             munmap(src, BLOCK_SIZE);
-            src = (char*) mmap(NULL, BLOCK_SIZE + off + 1024, PROT_READ, MAP_SHARED, descriptor, pa_off);
+            src = reinterpret_cast<char*>(mmap(nullptr, BLOCK_SIZE + off + 1024, PROT_READ, MAP_SHARED, descriptor, pa_off));
             int i = 0;
             do {
                 ++i;
             } while (src[offset + BLOCK_SIZE + i] != '\n' && src[offset + BLOCK_SIZE + i] != NULL);
             dst = (char*) malloc(BLOCK_SIZE + i);
             memcpy(dst, src + offset, BLOCK_SIZE + i);
+            if (src[offset + BLOCK_SIZE + i] == NULL) {
+                offset += BLOCK_SIZE;
+            }
             offset += i + 1;
         }
         return dst;
     }
 
     void MapReduce::Reduce(const int reducer_index) {
-        // Сделать merge списков и передать в user reducer
         std::vector<std::pair<std::string, std::vector<int>>> merged_data;
         for (int mapper_i = 0; mapper_i < max_simultaneous_workers_; ++mapper_i) {
-            // Из каждого маппера достать данные для текущего редьюсера и добавить в merged_data
-            // если K - новый, то добавить пару
-            // иначе - добавить V к существующему K
             for (auto &pair: mapped_data_for_reducer[mapper_i][reducer_index]) {
                 bool same = false;
                 for (auto &pair_in_merged_list: merged_data) {
-                    if (pair_in_merged_list.first.compare(pair.first) == 0) {
+                    if (pair_in_merged_list.first == pair.first) {
                         pair_in_merged_list.second.push_back(pair.second);
                         same = true;
                         break;
@@ -136,6 +125,10 @@ namespace mare_nostrum {
                     merged_data.emplace_back(pair.first, std::vector<int>(pair.second));
                 }
             }
+//            if (reducer_index == 0) {
+//                std::cout << mapper_i << " - " << mapped_data_for_reducer[mapper_i][0][1].first <<
+//                        ": " << mapped_data_for_reducer[mapper_i][0][1].second;
+//            }
         }
 
         std::vector<std::pair<std::string, int>> reduce_result = (*reducer_)(merged_data);
@@ -145,8 +138,6 @@ namespace mare_nostrum {
             file << pair.first << ": " << pair.second << "\n";
         }
         file.close();
-
-        return;
     }
 
     void MapReduce::Map(const std::string &split, const int mapper_index) {
@@ -156,32 +147,29 @@ namespace mare_nostrum {
                       return left.first.compare(right.first) < 0;
                   });
 
-        // 1. определить какие значения какой редьюсер принимает
-        // 2. Разделить результат для каждого маппера
-
-        for (int reducer_i = 0, range_begin = 0; reducer_i < num_reducers_; ++reducer_i) {
-            // Узнать, какое количество пар в диапазоне редьюсера
+        long range_begin = 0;
+        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
             auto range_end = std::count_if(map_result.begin(), map_result.end(),
                        [this, reducer_i] (auto &pair) {
-                          for (int i = 0; i < reducer_chars[reducer_i].size(); ++i) {
-                              if (pair.first[0] == reducer_chars[reducer_i][i]) {
+                          for (char & sym : reducer_chars[reducer_i]) {
+                              if (pair.first[0] == sym) {
                                   return true;
                               }
                           }
                           return false;
                        });
-            // Пары из полученного диапазона закинуть в вектор
+            range_end += range_begin;
             t_lock.lock();
             mapped_data_for_reducer[mapper_index][reducer_i] =
                     map_type(map_result.begin() + range_begin, map_result.begin() + range_end);
             t_lock.unlock();
+            range_begin = range_end;
         }
-
+//        std::cout << mapper_index << " - " << map_result[1].first << ": " << map_result[1].second << std::endl;
         mapper_status[mapper_index] = DONE;
-        return;
     }
 
-    int MapReduce::GetFreeMapperIndex(const std::vector<int> &mapper_status) {
+    int MapReduce::GetFreeMapperIndex() {
         for (int i = 0; i < mapper_status.size(); ++i) {
             if (mapper_status[i] == FREE || mapper_status[i] == DONE) {
                 return i;
