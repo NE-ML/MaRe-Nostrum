@@ -12,7 +12,7 @@ using namespace mare_nostrum;
 
 TEST(MapReduce, TestMapReduce) {
     MapReduce obj;
-    obj.setInputFiles("../data/text.txt");
+    obj.setInputFiles("./data/text.txt");
     obj.setMaxSimultaneousWorkers(std::thread::hardware_concurrency());
     obj.setNumReducers(4);
     obj.setTmpDir("../tmp/");

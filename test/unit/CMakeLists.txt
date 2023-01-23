@@ -18,7 +18,10 @@ set(TEST_LIBRARIES
         -lgtest
         mapReduce_lib
         )
-
+message("-- CMAKE_SYSTEM_INFO_FILE: ${CMAKE_SYSTEM_INFO_FILE}")
+message("-- CMAKE_SYSTEM_NAME:      ${CMAKE_SYSTEM_NAME}")
+message("-- CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+message("-- CMAKE_SYSTEM:           ${CMAKE_SYSTEM}")
 
 add_executable(${PROJECT_NAME} ${TEST_SOURCES})
 
