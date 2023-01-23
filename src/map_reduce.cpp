@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <algorithm>
 #include "map_reduce.h"
 
 namespace mare_nostrum {
@@ -19,6 +20,7 @@ namespace mare_nostrum {
 
     void MapReduce::setNumReducers(std::size_t num_reducers) {
         num_reducers_ = num_reducers;
+        CalculateRangeOfKeysForReducers();
     }
 
     void MapReduce::setTmpDir(const std::string &tmp_dir = "/tmp") {
@@ -98,6 +100,29 @@ namespace mare_nostrum {
 
     // Get split from file and pass it to Mapper
     void MapReduce::Map(const std::string &split, const int mapper_index) {
+        std::vector<std::pair<std::string, int>> map_result = (*mapper_)(split);
+        std::sort(map_result.begin(), map_result.end(),
+                  [](auto &left, auto &right) {
+                      return left.first.compare(right.first) < 0;
+                  });
+
+        // 1. определить какие значения какой редьюсер принимает
+        // 2. Разделить результат для каждого маппера
+
+        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+            // Узнать, какое количество пар в диапазоне редьюсера
+            auto range = std::count_if(map_result.begin(), map_result.end(),
+                       [this, reducer_i] (auto &pair) {
+                          for (int i = 0; i < reducer_chars[reducer_i].size(); ++i) {
+                              if (pair.first[0] == reducer_chars[reducer_i][i]) {
+                                  return true;
+                              }
+                          }
+                          return false;
+                       });
+
+        }
+
         t_lock.lock();
         mapper_result.push_back((*mapper_)(split));
         t_lock.unlock();
@@ -123,6 +148,22 @@ namespace mare_nostrum {
             std::function<std::vector<std::string, std::string>
                     (const std::string &, const std::vector<std::string> &)> &reducer) {
 //        reducer_ = &reducer;
-        reducer_ = &reducer;
+    }
+
+    void MapReduce::CalculateRangeOfKeysForReducers() {
+        std::vector<char> alphabet { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+                                        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
+        const int alphabet_size = 26;
+        std::vector<int> reducer_sizes(num_reducers_, alphabet_size / num_reducers_);
+        for (int i = 0; i < alphabet_size % num_reducers_; ++i) {
+            ++(reducer_sizes[i]);
+        }
+
+        int k = 0;
+        for (int i = 0; i < reducer_sizes.size(); ++i) {
+            for (int j = 0; j < reducer_sizes[i]; ++j) {
+                reducer_chars[i].push_back(alphabet[k++]);
+            }
+        }
     }
 }  // namespace mare_nostrum

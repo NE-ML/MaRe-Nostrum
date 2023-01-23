@@ -7,7 +7,7 @@
 #include <thread>
 #include <utility>  // std::pair
 
-#define BLOCK_SIZE 4
+#define BLOCK_SIZE 4096
 
 namespace mare_nostrum {
     class MapReduce {
@@ -55,11 +55,12 @@ namespace mare_nostrum {
         std::string output_dir_;
         std::string big_file_ = "big_file.txt";
         std::string input_file_;
-        std::vector<int> mapper_status;
+        std::vector<int> mapper_status;                             // Current mapper state
         std::size_t max_simultaneous_workers_;
+        std::vector<std::vector<char>> reducer_chars;               // Range of chars for each reducer
         std::vector<std::vector<std::pair<std::string, int>>> mapper_result;
-        std::size_t num_reducers_;
-        const int block_size = BLOCK_SIZE;
+        std::vector<std::vector<std::vector<std::pair<std::string, int>>>> mapped_data_for_reducer;
+        std::size_t num_reducers_;      // Number of reducers
         std::mutex t_lock;
 
         int GetFreeMapperIndex(const std::vector<int> &mapper_status);
@@ -67,6 +68,8 @@ namespace mare_nostrum {
         std::string GetSplit(const int descriptor, int &offset);
 
         void Map(const std::string &split, const int mapper_index);
+
+        void CalculateRangeOfKeysForReducers();
     };
 }
 

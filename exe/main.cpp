@@ -5,14 +5,19 @@
 using namespace mare_nostrum;
 
 // 1. Число мапперов задается размером входных данных
+// Каждый маппер должен подготовить сортировнный список ключей и значений,
+// которые он предоставляет редьюсеру
 // 2. Число редьюсеров задается пользователем
+// надо склеить списки, предоставляемые редьюсеру
 
+//Хадуп сам отвечает за пересылку данных с маппера на нужный редьюсер, группировку по ключу.
+//В редьюсере нужно только написать логику преобразования списка значений.
 int main() {
     MapReduce obj;
-    obj.setInputFiles("../data/file.txt");
+    obj.setInputFiles("../data/test.txt");
     obj.setMaxSimultaneousWorkers(std::thread::hardware_concurrency());
+    obj.setNumReducers(4);
     obj.setTmpDir("/tmp/");
-//    Mapper mapper;
     std::function<std::vector<std::pair<std::string, int>>(const std::string &)> mapper = Mapper();
     obj.setMapper(mapper);
     obj.start();
