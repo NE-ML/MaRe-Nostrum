@@ -7,7 +7,7 @@
 #include <thread>
 #include <utility>  // std::pair
 
-#define BLOCK_SIZE 131072
+constexpr int BLOCK_SIZE = 131072;
 
 namespace mare_nostrum {
     class mapReduce {
