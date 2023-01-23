@@ -14,14 +14,21 @@ set(TEST_LIBRARIES
         ${GTEST_MAIN_LIBRARY}
         GTest::GTest
         Threads::Threads
-        gtest_main
-        -lgtest
         mapReduce_lib
         )
+
 message("-- CMAKE_SYSTEM_INFO_FILE: ${CMAKE_SYSTEM_INFO_FILE}")
 message("-- CMAKE_SYSTEM_NAME:      ${CMAKE_SYSTEM_NAME}")
 message("-- CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 message("-- CMAKE_SYSTEM:           ${CMAKE_SYSTEM}")
+
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    set(TEST_LIBRARIES
+            ${TEST_LIBRARIES}
+            gtest_main
+            -lgtest
+            )
+endif()
 
 add_executable(${PROJECT_NAME} ${TEST_SOURCES})
 
