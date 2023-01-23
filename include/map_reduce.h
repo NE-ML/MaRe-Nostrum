@@ -40,8 +40,8 @@ namespace mare_nostrum {
         void setMapper(std::function<std::vector<std::pair<std::string, int>>(const std::string &)> &mapper);
 
         // would be fine to rewrite as template function with std::string_view and Iterable instead of std::vector
-        void setReducer(std::function<std::vector<std::string, std::string>(const std::string &,
-                                                                            const std::vector<std::string> &)> &reducer);
+        void setReducer(std::function<std::vector<std::string, int>
+                (const std::vector<std::string, std::vector<int>> &)> &reducer);
 
         void start();
 
@@ -49,9 +49,8 @@ namespace mare_nostrum {
         // YOUR CODE HERE
         std::function<std::vector<std::pair<std::string, int>>
                       (const std::string &)>* mapper_;
-        std::function<std::vector<std::string, std::string>
-                      (const std::string &,
-                       const std::vector<std::string> &)>* reducer_;
+        std::function<std::vector<std::string, int>
+                      (const std::vector<std::string, std::vector<int>> &)>* reducer_;
         uintmax_t file_size_;
         std::string tmp_dir_;
         std::string output_dir_;
@@ -67,9 +66,11 @@ namespace mare_nostrum {
 
         int GetFreeMapperIndex(const std::vector<int> &mapper_status);
 
-        std::string GetSplit(const int descriptor, int &offset);
+        std::string GetSplit(const int descriptor, int &offset) const;
 
         void Map(const std::string &split, const int mapper_index);
+
+        void Reduce(const int reducer_index);
 
         void CalculateRangeOfKeysForReducers();
     };

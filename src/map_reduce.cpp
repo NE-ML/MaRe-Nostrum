@@ -43,11 +43,7 @@ namespace mare_nostrum {
     MapReduce::~MapReduce() {
 
     }
-    //    Делает mmap входного файла, расчитывает сплиты (например, по 32МБ).
-    //    (!) Сплит может проходить только через символ ‘\n’.
-    //    Если “разрез” по размеру проходит не по ‘\n’,
-    //    нужно захватить все до этого символа, соответственно,
-    //    следующий сплит начать позже.
+
     void MapReduce::start() {
         if (!std::filesystem::create_directory(tmp_dir_)) {
             std::cerr << "Error creating temporary directory.\n";
@@ -77,9 +73,19 @@ namespace mare_nostrum {
         }
 
         threads.clear();
+
+
+        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+            threads[reducer_i] = std::thread(&MapReduce::Reduce, this, reducer_i);
+        }
+        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+            threads[reducer_i].join();
+        }
+
+        return;
     }
 
-    std::string MapReduce::GetSplit(const int descriptor, int &offset) {
+    std::string MapReduce::GetSplit(const int descriptor, int &offset) const {
 //        off_t off = current_split * BLOCK_SIZE;
 //        off_t off = BLOCK_SIZE;
 //        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
@@ -103,7 +109,33 @@ namespace mare_nostrum {
         return dst;
     }
 
-    // Get split from file and pass it to Mapper
+    void MapReduce::Reduce(const int reducer_index) {
+        // Сделать merge списков и передать в user reducer
+        std::vector<std::pair<std::string, std::vector<int>>> merged_data;
+        for (int mapper_i = 0; mapper_i < max_simultaneous_workers_; ++mapper_i) {
+            // Из каждого маппера достать данные для текущего редьюсера и добавить в merged_data
+            // если K - новый, то добавить пару
+            // иначе - добавить V к существующему K
+            for (auto &pair: mapped_data_for_reducer[mapper_i][reducer_index]) {
+                bool same = false;
+                for (auto &pair_in_merged_list: merged_data) {
+                    if (pair_in_merged_list.first.compare(pair.first) == 0) {
+                        pair_in_merged_list.second.push_back(pair.second);
+                        same = true;
+                        break;
+                    }
+                }
+                if (!same) {
+                    merged_data.push_back({pair.first, {pair.second}});
+                }
+            }
+        }
+
+        std::vector<std::string, int> reduce_result = (*reducer_)(merged_data);
+
+        return;
+    }
+
     void MapReduce::Map(const std::string &split, const int mapper_index) {
         map_type map_result = (*mapper_)(split);
         std::sort(map_result.begin(), map_result.end(),
@@ -150,10 +182,9 @@ namespace mare_nostrum {
         mapper_ = &mapper;
     }
 
-    void MapReduce::setReducer(
-            std::function<std::vector<std::string, std::string>
-                    (const std::string &, const std::vector<std::string> &)> &reducer) {
-//        reducer_ = &reducer;
+    void MapReduce::setReducer(std::function<std::vector<std::string, int>
+            (const std::vector<std::string, std::vector<int>> &)> &reducer) {
+        reducer_ = &reducer;
     }
 
     void MapReduce::CalculateRangeOfKeysForReducers() {
