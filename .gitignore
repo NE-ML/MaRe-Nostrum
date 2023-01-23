@@ -34,6 +34,3 @@
 # IDE directories
 .idea/
 cmake-build-debug/
-
-# Exapmle data directories
-data/
