@@ -17,15 +17,15 @@ std::vector<std::pair<std::string, int>> Mapper::operator()(const std::string &s
             i += word_len;
             bool unique = true;
             // If word is NOT new
-            for (int k = 0; k < map_result.size(); ++k) {
-                if (word == map_result[k].first) {
-                    ++(map_result[k].second);
+            for (auto &pair: map_result) {
+                if (word == pair.first) {
+                    ++(pair.second);
                     unique = false;
                     break;
                 }
             }
             if (unique) {
-                map_result.push_back(std::pair<std::string, int>(word, 1));
+                map_result.emplace_back(word, 1);
             }
         }
     }

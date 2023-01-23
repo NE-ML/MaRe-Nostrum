@@ -9,7 +9,7 @@ std::vector<std::pair<std::string, int>> Reducer::operator()
     std::vector<std::pair<std::string, int>> result;
     for (const auto &pair: merged_data) {
         int sum = std::accumulate(pair.second.begin(), pair.second.end(), 0);
-        result.push_back({pair.first, sum});
+        result.emplace_back(pair.first, sum);
     }
     return result;
 }

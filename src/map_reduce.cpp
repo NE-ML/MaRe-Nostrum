@@ -22,6 +22,7 @@ namespace mare_nostrum {
 
     void MapReduce::setNumReducers(std::size_t num_reducers) {
         num_reducers_ = num_reducers;
+        reducer_chars.resize(num_reducers_);
         for (int i = 0; i < mapped_data_for_reducer.size(); ++i) {
             mapped_data_for_reducer[i].resize(num_reducers_);
         }
@@ -90,7 +91,7 @@ namespace mare_nostrum {
 //        off_t off = BLOCK_SIZE;
 //        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
 //        char* src = (char*)mmap(NULL, BLOCK_SIZE + off - pa_off, PROT_READ, MAP_SHARED, descriptor, pa_off);
-        char* src = (char*) mmap(NULL, 1, PROT_READ, MAP_SHARED, descriptor, 0);
+        char* src = (char*) mmap(NULL, BLOCK_SIZE, PROT_READ, MAP_SHARED, descriptor, 0);
         if (offset + BLOCK_SIZE > file_size_) {
             std::string dst(src + offset, file_size_);
             offset += file_size_;
@@ -126,7 +127,7 @@ namespace mare_nostrum {
                     }
                 }
                 if (!same) {
-                    merged_data.push_back({pair.first, {pair.second}});
+                    merged_data.emplace_back(pair.first, std::vector<int>(pair.second));
                 }
             }
         }
