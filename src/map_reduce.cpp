@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <algorithm>
+#include <span>
 #include "map_reduce.h"
 
 namespace mare_nostrum {
@@ -16,10 +17,14 @@ namespace mare_nostrum {
     void MapReduce::setMaxSimultaneousWorkers(std::size_t max_simultaneous_workers) {
         max_simultaneous_workers_ = max_simultaneous_workers;
         mapper_status.resize(max_simultaneous_workers_, FREE);
+        mapped_data_for_reducer.resize(max_simultaneous_workers_);
     }
 
     void MapReduce::setNumReducers(std::size_t num_reducers) {
         num_reducers_ = num_reducers;
+        for (int i = 0; i < mapped_data_for_reducer.size(); ++i) {
+            mapped_data_for_reducer[i].resize(num_reducers_);
+        }
         CalculateRangeOfKeysForReducers();
     }
 
@@ -100,7 +105,7 @@ namespace mare_nostrum {
 
     // Get split from file and pass it to Mapper
     void MapReduce::Map(const std::string &split, const int mapper_index) {
-        std::vector<std::pair<std::string, int>> map_result = (*mapper_)(split);
+        map_type map_result = (*mapper_)(split);
         std::sort(map_result.begin(), map_result.end(),
                   [](auto &left, auto &right) {
                       return left.first.compare(right.first) < 0;
@@ -109,9 +114,9 @@ namespace mare_nostrum {
         // 1. определить какие значения какой редьюсер принимает
         // 2. Разделить результат для каждого маппера
 
-        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+        for (int reducer_i = 0, range_begin = 0; reducer_i < num_reducers_; ++reducer_i) {
             // Узнать, какое количество пар в диапазоне редьюсера
-            auto range = std::count_if(map_result.begin(), map_result.end(),
+            auto range_end = std::count_if(map_result.begin(), map_result.end(),
                        [this, reducer_i] (auto &pair) {
                           for (int i = 0; i < reducer_chars[reducer_i].size(); ++i) {
                               if (pair.first[0] == reducer_chars[reducer_i][i]) {
@@ -120,12 +125,13 @@ namespace mare_nostrum {
                           }
                           return false;
                        });
-
+            // Пары из полученного диапазона закинуть в вектор
+            t_lock.lock();
+            mapped_data_for_reducer[mapper_index][reducer_i] =
+                    map_type(map_result.begin() + range_begin, map_result.begin() + range_end);
+            t_lock.unlock();
         }
 
-        t_lock.lock();
-        mapper_result.push_back((*mapper_)(split));
-        t_lock.unlock();
         mapper_status[mapper_index] = DONE;
         return;
     }

@@ -12,6 +12,8 @@
 namespace mare_nostrum {
     class MapReduce {
     public:
+        typedef std::vector<std::pair<std::string, int>> map_type;
+
         enum mapperStatus {
             FREE,
             BUSY,
