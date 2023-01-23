@@ -6,6 +6,7 @@
 #include <functional>
 #include <thread>
 #include <utility>  // std::pair
+#include <mutex>
 
 #define BLOCK_SIZE 131072
 
