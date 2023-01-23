@@ -196,4 +196,8 @@ namespace mare_nostrum {
             }
         }
     }
+
+    mapReduce::mapReduce(std::size_t split_size) {
+
+    }
 }  // namespace mare_nostrum

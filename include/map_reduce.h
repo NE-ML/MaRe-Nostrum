@@ -12,7 +12,7 @@
 namespace mare_nostrum {
     class mapReduce {
     public:
-        typedef std::vector<std::pair<std::string, int>> map_type;
+        using map_type = std::vector<std::pair<std::string, int>>;
 
         enum mapperStatus {
             FREE,

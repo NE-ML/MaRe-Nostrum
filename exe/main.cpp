@@ -1,7 +1,7 @@
+#include <thread>
 #include "map_reduce.h"
 #include "mapper.h"
 #include "reducer.h"
-#include <thread>
 
 using namespace mare_nostrum;
 
@@ -17,5 +17,6 @@ int main() {
                     (const std::vector<std::pair<std::string, std::vector<int>>> &)> reducer = Reducer();
     obj.setReducer(reducer);
     obj.start();
-//    return 0;
+
+    return 0;
 }
