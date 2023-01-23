@@ -14,6 +14,8 @@ set(TEST_LIBRARIES
         ${GTEST_MAIN_LIBRARY}
         GTest::GTest
         Threads::Threads
+        gtest_main
+        -lgtest
         mapReduce_lib
         )
 
