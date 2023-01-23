@@ -1,4 +1,4 @@
-project(unit_test)
+project(unit_tests)
 enable_testing()
 
 find_package(GTest REQUIRED)

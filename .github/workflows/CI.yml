@@ -1,0 +1,40 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  ubuntu-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+      - name: Install tools
+        run: |
+          sudo apt update
+          sudo apt install libgtest-dev
+          sudo apt install cmake
+          sudo apt install make
+          sudo apt install libgmock-dev
+          sudo apt install lcov
+          sudo apt install valgrind
+          sudo apt install clang-format
+          sudo apt install cppcheck
+          sudo apt install clang-tidy
+          sudo pip install cpplint
+          sudo apt install python
+
+      - name: Build project
+        run: |
+          mkdir -p ./build/
+          cmake -S . -B ./build/
+          cmake --build ./build/
+      - name: Run tests
+        run: ./test/unit/unit_tests
+      - name: Make report
+        run: |
+          lcov -t ./build/test/unit/ -o ./build/test/unit/coverage_report.info -c -d ./build/test/unit/unit_tests
+          genhtml -o ./build/test/unit/coverage_report ./build/test/unit/coverage_report.info
+      - name: Coverage report
+        uses: actions/upload-artifact@v2.0.0
+        with:
+          name: coverage_report
+          path: ./build/test/unit/coverage_report
+
