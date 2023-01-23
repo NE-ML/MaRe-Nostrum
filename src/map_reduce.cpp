@@ -5,7 +5,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <algorithm>
-#include <span>
+#include <fstream>
 #include "map_reduce.h"
 
 namespace mare_nostrum {
@@ -75,12 +75,12 @@ namespace mare_nostrum {
         threads.clear();
 
 
-        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
-            threads[reducer_i] = std::thread(&MapReduce::Reduce, this, reducer_i);
-        }
-        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
-            threads[reducer_i].join();
-        }
+//        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+//            threads[reducer_i] = std::thread(&MapReduce::Reduce, this, reducer_i);
+//        }
+//        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
+//            threads[reducer_i].join();
+//        }
 
         return;
     }
@@ -131,7 +131,13 @@ namespace mare_nostrum {
             }
         }
 
-        std::vector<std::string, int> reduce_result = (*reducer_)(merged_data);
+        std::vector<std::pair<std::string, int>> reduce_result = (*reducer_)(merged_data);
+
+        std::ofstream file (tmp_dir_ + std::to_string(reducer_index) + ".txt");
+        for (const auto& pair: reduce_result) {
+            file << pair.first << ": " << pair.second << "\n";
+        }
+        file.close();
 
         return;
     }
@@ -182,8 +188,7 @@ namespace mare_nostrum {
         mapper_ = &mapper;
     }
 
-    void MapReduce::setReducer(std::function<std::vector<std::string, int>
-            (const std::vector<std::string, std::vector<int>> &)> &reducer) {
+    void MapReduce::setReducer(std::function<std::vector<std::pair<std::string, int>>(const std::vector<std::pair<std::string, std::vector<int>>> &)> &reducer) {
         reducer_ = &reducer;
     }
 

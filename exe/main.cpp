@@ -1,5 +1,6 @@
 #include "map_reduce.h"
 #include "mapper.h"
+#include "reducer.h"
 #include <thread>
 
 using namespace mare_nostrum;
@@ -20,6 +21,9 @@ int main() {
     obj.setTmpDir("/tmp/");
     std::function<std::vector<std::pair<std::string, int>>(const std::string &)> mapper = Mapper();
     obj.setMapper(mapper);
+    std::function<std::vector<std::pair<std::string, int>>
+                    (const std::vector<std::pair<std::string, std::vector<int>>> &)> reducer = Reducer();
+    obj.setReducer(reducer);
     obj.start();
 //    Job j;
 //    j.setInputFiles(/* список файлов */);
