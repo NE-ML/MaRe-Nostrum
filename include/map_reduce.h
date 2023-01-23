@@ -66,7 +66,7 @@ namespace mare_nostrum {
 
         int GetFreeMapperIndex(const std::vector<int> &mapper_status);
 
-        std::string GetSplit(const int descriptor, int &offset) const;
+        char *GetSplit(const int descriptor, int &offset, const int current_split) const;
 
         void Map(const std::string &split, const int mapper_index);
 

@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <algorithm>
 #include <fstream>
+#include <unistd.h>
 #include "map_reduce.h"
 
 namespace mare_nostrum {
@@ -54,26 +55,28 @@ namespace mare_nostrum {
 
         int descriptor = open(input_file_.c_str(), O_RDONLY);
         int offset = 0;
-
+        int current_split = 0;
         while (offset < file_size_) {
-            std::string split = GetSplit(descriptor, offset);
-
-            int index = GetFreeMapperIndex(mapper_status);
-            if (mapper_status[index] == DONE) {
-                threads[index].join();
-            }
-
-            mapper_status[index] = BUSY;
-            threads[index] = std::thread(&MapReduce::Map, this, split, index);
+            char* split = GetSplit(descriptor, offset, current_split++);
+//            int index = GetFreeMapperIndex(mapper_status);
+//            if (mapper_status[index] == DONE) {
+//                threads[index].join();
+//            }
+//            if (index == -1) {
+//                continue;
+//            }
+//
+//            mapper_status[index] = BUSY;
+//            threads[index] = std::thread(&MapReduce::Map, this, split, index);
         }
 
-        for (int i = 0; i < max_simultaneous_workers_; ++i) {
-            if (mapper_status[i] == BUSY || mapper_status[i] == DONE) {
-                threads[i].join();
-            }
-        }
+//        for (int i = 0; i < max_simultaneous_workers_; ++i) {
+//            if (mapper_status[i] == BUSY || mapper_status[i] == DONE) {
+//                threads[i].join();
+//            }
+//        }
 
-        threads.clear();
+//        threads.clear();
 
 
 //        for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
@@ -86,26 +89,29 @@ namespace mare_nostrum {
         return;
     }
 
-    std::string MapReduce::GetSplit(const int descriptor, int &offset) const {
-//        off_t off = current_split * BLOCK_SIZE;
-//        off_t off = BLOCK_SIZE;
-//        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
-//        char* src = (char*)mmap(NULL, BLOCK_SIZE + off - pa_off, PROT_READ, MAP_SHARED, descriptor, pa_off);
-        char* src = (char*) mmap(NULL, BLOCK_SIZE, PROT_READ, MAP_SHARED, descriptor, 0);
-        if (offset + BLOCK_SIZE > file_size_) {
-            std::string dst(src + offset, file_size_);
+    char *MapReduce::GetSplit(const int descriptor, int &offset, const int current_split) const {
+        off_t off = current_split * BLOCK_SIZE;
+        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
+        char* src = reinterpret_cast<char*>(mmap(nullptr, BLOCK_SIZE + off, PROT_READ, MAP_SHARED, descriptor, pa_off));
+
+        char* dst = nullptr;
+        if (pa_off + BLOCK_SIZE + offset > file_size_) {
+            dst = (char*) malloc(file_size_);
+            memcpy(dst, src + offset, file_size_ - pa_off);
             offset += file_size_;
             return dst;
         }
 
-        std::string dst(src + offset, BLOCK_SIZE);
-        if (dst[BLOCK_SIZE - 1] != '\n') {
+        if (src[BLOCK_SIZE - 1] != '\n') {
+            munmap(src, BLOCK_SIZE);
+            src = (char*) mmap(NULL, BLOCK_SIZE + off + 1024, PROT_READ, MAP_SHARED, descriptor, pa_off);
             int i = 0;
             do {
-                dst += src[offset + BLOCK_SIZE + i];
                 ++i;
             } while (src[offset + BLOCK_SIZE + i] != '\n' && src[offset + BLOCK_SIZE + i] != NULL);
-            offset += BLOCK_SIZE + i + 1;
+            dst = (char*) malloc(BLOCK_SIZE + i);
+            memcpy(dst, src + offset, BLOCK_SIZE + i);
+            offset += i + 1;
         }
         return dst;
     }
