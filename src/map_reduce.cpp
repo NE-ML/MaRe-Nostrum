@@ -112,6 +112,7 @@ namespace mare_nostrum {
     void MapReduce::Reduce(const int reducer_index) {
         std::vector<std::pair<std::string, std::vector<int>>> merged_data;
         for (int mapper_i = 0; mapper_i < max_simultaneous_workers_; ++mapper_i) {
+//        for (int mapper_i = 0; mapper_i < mapped_data_for_reducer.size(); ++mapper_i) {
             for (auto &pair: mapped_data_for_reducer[mapper_i][reducer_index]) {
                 bool same = false;
                 for (auto &pair_in_merged_list: merged_data) {
@@ -122,13 +123,13 @@ namespace mare_nostrum {
                     }
                 }
                 if (!same) {
-                    merged_data.emplace_back(pair.first, std::vector<int>(pair.second));
+                    merged_data.emplace_back(pair.first, std::initializer_list<int>{pair.second});
                 }
             }
-//            if (reducer_index == 0) {
-//                std::cout << mapper_i << " - " << mapped_data_for_reducer[mapper_i][0][1].first <<
-//                        ": " << mapped_data_for_reducer[mapper_i][0][1].second;
-//            }
+            if (reducer_index == 0) {
+                std::cout << mapper_i << " - " << merged_data[3].first <<
+                        ": " << merged_data[3].second[mapper_i] << std::endl;
+            }
         }
 
         std::vector<std::pair<std::string, int>> reduce_result = (*reducer_)(merged_data);
@@ -147,6 +148,12 @@ namespace mare_nostrum {
                       return left.first.compare(right.first) < 0;
                   });
 
+//        t_lock.lock();
+//        if (mapped_data_for_reducer.size() == mapped_data_for_reducer.capacity()) {
+//            mapped_data_for_reducer.resize(mapped_data_for_reducer.size() * 2);
+//        }
+//        t_lock.unlock();
+
         long range_begin = 0;
         for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
             auto range_end = std::count_if(map_result.begin(), map_result.end(),
@@ -160,12 +167,17 @@ namespace mare_nostrum {
                        });
             range_end += range_begin;
             t_lock.lock();
+//            auto mappred_data_for_reducer_i = map_type(map_result.begin() + range_begin, map_result.begin() + range_end);
+//            if (reducer_i == 0) {
+//                mapped_data_for_reducer.push_back()
+//            }
+//            mapped_data_for_reducer[mapped_data_for_reducer.size() - 1].emplace_back(map_result.begin() + range_begin, map_result.begin() + range_end);
             mapped_data_for_reducer[mapper_index][reducer_i] =
                     map_type(map_result.begin() + range_begin, map_result.begin() + range_end);
             t_lock.unlock();
             range_begin = range_end;
         }
-//        std::cout << mapper_index << " - " << map_result[1].first << ": " << map_result[1].second << std::endl;
+        std::cout << mapper_index << " - " << map_result[3].first << ": " << map_result[3].second << std::endl;
         mapper_status[mapper_index] = DONE;
     }
 
