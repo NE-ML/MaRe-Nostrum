@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <fstream>
 #include <unistd.h>
+
+#include <cstring>
+
 #include "map_reduce.h"
 
 namespace mare_nostrum {
@@ -40,26 +43,33 @@ namespace mare_nostrum {
 
     void MapReduce::start() {
         if (!std::filesystem::create_directory(tmp_dir_)) {
-            std::cerr << "Error creating temporary directory.\n";
+            std::cerr << "Error creating temporary directory. It possibly exists\n";
         }
 
         std::vector<std::thread> threads(max_simultaneous_workers_);
 
         int descriptor = open(input_file_.c_str(), O_RDONLY);
+        if (descriptor == -1) {
+            std::cerr << "Error opening file.\n";
+        }
+
+        char *mapped_data = reinterpret_cast<char *>(mmap(nullptr, file_size_, PROT_READ, MAP_SHARED, descriptor,
+                                                          0));  // map the current pages
+
         int offset = 0;
         int current_split = 0;
         while (offset < file_size_) {
-            char* split = GetSplit(descriptor, offset, current_split++);
+            auto split = getSplit(mapped_data, offset, current_split++);
             int index = -1;
             do {
                 index = GetFreeMapperIndex();
-            } while(index == -1);
+            } while (index == -1);
             if (mapper_status[index] == DONE) {
                 threads[index].join();
             }
 
             mapper_status[index] = BUSY;
-            threads[index] = std::thread(&MapReduce::Map, this, split, current_split-1);
+            threads[index] = std::thread(&MapReduce::Map, this, split, current_split - 1);
         }
 
         for (int i = 0; i < max_simultaneous_workers_; ++i) {
@@ -79,42 +89,43 @@ namespace mare_nostrum {
         }
     }
 
-    char *MapReduce::GetSplit(const int descriptor, int &offset, const int current_split) const {
-        off_t off = current_split * BLOCK_SIZE;
-        off_t pa_off = off & ~(sysconf(_SC_PAGE_SIZE) - 1);
-        char* src = reinterpret_cast<char*>(mmap(nullptr, BLOCK_SIZE + off, PROT_READ, MAP_SHARED, descriptor, pa_off));
+    std::string MapReduce::getSplit(const char *mapped_data, int &offset, const int current_split) const {
 
-        char* dst = nullptr;
-        if (pa_off + BLOCK_SIZE + offset > file_size_) {
-            dst = (char*) malloc(file_size_);
-            memcpy(dst, src + offset, file_size_ - pa_off);
-            offset += file_size_;
+
+//        char *dst = nullptr;
+        if (offset + BLOCK_SIZE > file_size_) {
+            // last split: start of split + BLOCK_SIZE may go beyond the end of the file
+//            dst = (char *) malloc(file_size_);
+//            memcpy(dst, src + offset, file_size_ - page_off);
+            std::string dst = std::string(mapped_data + offset,
+                                          file_size_ - offset);  // Added - offset to avoid copying the same data twice
+            offset += BLOCK_SIZE;
             return dst;
         }
 
-        if (src[BLOCK_SIZE - 1] != '\n') {
-            munmap(src, BLOCK_SIZE);
-            src = reinterpret_cast<char*>(mmap(nullptr, BLOCK_SIZE + off + 1024, PROT_READ, MAP_SHARED, descriptor, pa_off));
+        if (mapped_data[(current_split + 1) * BLOCK_SIZE - 1] != '\n') {
+            // if the last character of the current page is not a newline, we need to read the next page
+            // remap the current block with an extra page
             int i = 0;
-            do {
-                ++i;
-            } while (src[offset + BLOCK_SIZE + i] != '\n' && src[offset + BLOCK_SIZE + i] != NULL);
-            dst = (char*) malloc(BLOCK_SIZE + i);
-            memcpy(dst, src + offset, BLOCK_SIZE + i);
-            if (src[offset + BLOCK_SIZE + i] == NULL) {
-                offset += BLOCK_SIZE;
+            for (; mapped_data[offset + BLOCK_SIZE + i] != '\n' &&
+                   mapped_data[offset + BLOCK_SIZE + i] != NULL &&
+                   offset + BLOCK_SIZE + i < file_size_; ++i) {
+                // while not a newline or end of file
+                // we increase i until we find a newline or the end of the file
             }
-            offset += i + 1;
+            auto dst = std::string(mapped_data + offset, BLOCK_SIZE + i + 1);
+            offset += BLOCK_SIZE + i + 1;
+            return dst;
         }
-        return dst;
+        return std::string(mapped_data + offset, BLOCK_SIZE);
     }
 
     void MapReduce::Reduce(const int reducer_index) {
         std::vector<std::pair<std::string, std::vector<int>>> merged_data;
         for (int mapper_i = 0; mapper_i < mapped_data_for_reducer.size(); ++mapper_i) {
-            for (auto &pair: mapped_data_for_reducer[mapper_i][reducer_index]) {
+            for (auto &pair : mapped_data_for_reducer[mapper_i][reducer_index]) {
                 bool exist = false;
-                for (auto &pair_in_merged_list: merged_data) {
+                for (auto &pair_in_merged_list : merged_data) {
                     if (pair_in_merged_list.first == pair.first) {
                         pair_in_merged_list.second.push_back(pair.second);
                         exist = true;
@@ -129,8 +140,8 @@ namespace mare_nostrum {
 
         std::vector<std::pair<std::string, int>> reduce_result = (*reducer_)(merged_data);
 
-        std::ofstream file (tmp_dir_ + std::to_string(reducer_index) + ".txt");
-        for (const auto& pair: reduce_result) {
+        std::ofstream file(tmp_dir_ + std::to_string(reducer_index) + ".txt");
+        for (const auto &pair : reduce_result) {
             file << pair.first << ": " << pair.second << "\n";
         }
         file.close();
@@ -153,14 +164,14 @@ namespace mare_nostrum {
         long range_begin = 0;
         for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
             auto range_end = std::count_if(map_result.begin(), map_result.end(),
-                       [this, reducer_i] (auto &pair) {
-                          for (char & sym : reducer_chars[reducer_i]) {
-                              if (pair.first[0] == sym) {
-                                  return true;
-                              }
-                          }
-                          return false;
-                       });
+                                           [this, reducer_i](auto &pair) {
+                                               for (char &sym : reducer_chars[reducer_i]) {
+                                                   if (pair.first[0] == sym) {
+                                                       return true;
+                                                   }
+                                               }
+                                               return false;
+                                           });
             range_end += range_begin;
 //            t_lock.lock();
             mapped_splitted_data.emplace_back(map_result.begin() + range_begin, map_result.begin() + range_end);
@@ -170,11 +181,11 @@ namespace mare_nostrum {
 //            t_lock.unlock();
             range_begin = range_end;
         }
-        std::cout << mapper_index << " - " << map_result[3].first << ": " << map_result[3].second << std::endl;
-
-        t_lock.lock();
-        mapped_data_for_reducer.emplace_back(mapped_splitted_data);
-        t_lock.unlock();
+        {
+            std::lock_guard<std::mutex> lock(t_lock);
+            std::cout << mapper_index << " - " << map_result[3].first << ": " << map_result[3].second << std::endl;
+            mapped_data_for_reducer.emplace_back(mapped_splitted_data);
+        }
 
         mapper_status[mapper_index] = DONE;
     }
@@ -193,13 +204,14 @@ namespace mare_nostrum {
         mapper_ = &mapper;
     }
 
-    void MapReduce::setReducer(std::function<std::vector<std::pair<std::string, int>>(const std::vector<std::pair<std::string, std::vector<int>>> &)> &reducer) {
+    void MapReduce::setReducer(std::function<std::vector<std::pair<std::string, int>>(
+            const std::vector<std::pair<std::string, std::vector<int>>> &)> &reducer) {
         reducer_ = &reducer;
     }
 
     void MapReduce::CalculateRangeOfKeysForReducers() {
-        std::vector<char> alphabet { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-                                        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
+        std::vector<char> alphabet{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+                                   'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
         const int alphabet_size = 26;
         std::vector<int> reducer_sizes(num_reducers_, alphabet_size / num_reducers_);
         for (int i = 0; i < alphabet_size % num_reducers_; ++i) {
