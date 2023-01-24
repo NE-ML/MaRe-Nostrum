@@ -21,3 +21,16 @@
 
 ## setReducer
 Изменяет функцию, которая будет использоваться в качестве редьюсера.
+
+## Сборка проекта
+```bash
+mkdir -p ./build/
+cmake -S . -B ./build/
+cmake --build ./build/
+```
+
+## Запуск тестов
+```bash
+./build/test/unit/unit_tests
+```
+
