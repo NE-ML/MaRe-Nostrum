@@ -1,6 +1,3 @@
-//
-// Created by Alexander on 17.01.2023.
-//
 #include "mapper.h"
 
 std::vector<std::pair<std::string, int>> Mapper::operator()(const std::string &str) {

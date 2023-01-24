@@ -1,13 +1,13 @@
+#include <thread>
 #include "map_reduce.h"
 #include "mapper.h"
 #include "reducer.h"
-#include <thread>
 
 using namespace mare_nostrum;
 
 int main() {
-    MapReduce obj;
-    obj.setInputFiles("../data/file10000.txt");
+    mapReduce obj;
+    obj.setInputFiles("../data/file.txt");
     obj.setMaxSimultaneousWorkers(std::thread::hardware_concurrency());
     obj.setNumReducers(4);
     obj.setTmpDir("../tmp/");
@@ -17,5 +17,6 @@ int main() {
                     (const std::vector<std::pair<std::string, std::vector<int>>> &)> reducer = Reducer();
     obj.setReducer(reducer);
     obj.start();
-//    return 0;
+
+    return 0;
 }

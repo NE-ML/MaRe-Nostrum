@@ -18,7 +18,7 @@ namespace mare_nostrum {
 
     class MapReduce {
     public:
-        typedef std::vector<std::pair<std::string, int>> map_type;
+        using map_type = std::vector<std::pair<std::string, int>>;
 
         MapReduce() = default;
 

@@ -1,7 +1,3 @@
-//
-// Created by Alexander on 17.01.2023.
-//
-
 #ifndef MAPPER_H
 #define MAPPER_H
 

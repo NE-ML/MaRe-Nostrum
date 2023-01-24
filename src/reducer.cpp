@@ -1,6 +1,3 @@
-//
-// Created by Alexander on 23.01.2023.
-//
 #include <numeric>
 #include "reducer.h"
 

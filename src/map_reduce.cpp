@@ -12,23 +12,20 @@
 #include "map_reduce.h"
 
 namespace mare_nostrum {
-    void MapReduce::setInputFiles(const std::string &input_file) {
+    void mapReduce::setInputFiles(const std::string &input_file) {
         input_file_ = input_file;
         file_size_ = std::filesystem::file_size(input_file_);
     }
 
-    void MapReduce::setMaxSimultaneousWorkers(std::size_t max_simultaneous_workers) {
+    void mapReduce::setMaxSimultaneousWorkers(std::size_t max_simultaneous_workers) {
         max_simultaneous_workers_ = max_simultaneous_workers;
         mapper_status.resize(max_simultaneous_workers_, mapperStatus::FREE);
 //        mapped_data_for_reducer.resize(max_simultaneous_workers_);
     }
 
-    void MapReduce::setNumReducers(std::size_t num_reducers) {
+    void mapReduce::setNumReducers(std::size_t num_reducers) {
         num_reducers_ = num_reducers;
         reducer_chars.resize(num_reducers_);
-//        for (int i = 0; i < mapped_data_for_reducer.size(); ++i) {
-//            mapped_data_for_reducer[i].resize(num_reducers_);
-//        }
         calculateRangeOfKeysForReducers();
     }
 
@@ -36,7 +33,7 @@ namespace mare_nostrum {
         tmp_dir_ = tmp_dir;
     }
 
-    void MapReduce::setOutputDir(const std::string &output_dir) {
+    void mapReduce::setOutputDir(const std::string &output_dir) {
         output_dir_ = output_dir;
     }
 
@@ -79,6 +76,7 @@ namespace mare_nostrum {
         munmap(mapped_data, file_size_);
 
         threads.clear();
+   }
 
 
         for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
@@ -92,11 +90,8 @@ namespace mare_nostrum {
     std::string MapReduce::getSplit(const char *mapped_data, int &offset, const int current_split) const {
 
 
-//        char *dst = nullptr;
         if (offset + BLOCK_SIZE > file_size_) {
             // last split: start of split + BLOCK_SIZE may go beyond the end of the file
-//            dst = (char *) malloc(file_size_);
-//            memcpy(dst, src + offset, file_size_ - page_off);
             std::string dst = std::string(mapped_data + offset,
                                           file_size_ - offset);  // Added - offset to avoid copying the same data twice
             offset += BLOCK_SIZE;
@@ -188,7 +183,7 @@ namespace mare_nostrum {
         return -1;
     }
 
-    void MapReduce::setMapper(
+    void mapReduce::setMapper(
             std::function<std::vector<std::pair<std::string, int>>(const std::string &)> &mapper) {
         mapper_ = mapper;
     }
@@ -213,5 +208,9 @@ namespace mare_nostrum {
                 reducer_chars[i].push_back(alphabet[k++]);
             }
         }
+    }
+
+    mapReduce::mapReduce(std::size_t split_size) {
+
     }
 }  // namespace mare_nostrum
