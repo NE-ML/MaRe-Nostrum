@@ -74,7 +74,7 @@ namespace mare_nostrum {
             }
         }
         munmap(mapped_data, file_size_);
-
+        close(descriptor);
         threads.clear();
 
 

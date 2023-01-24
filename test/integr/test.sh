@@ -10,7 +10,7 @@ cd ..
 path="./build/MaRe-Nostrum"
 
 output=$($path "file10000.txt")
-if [[ $? != 0 ]]; then
+if [[ $? != 0 ]]; then  # Check the exit code
   echo "FAILED"
 else
   # Check the output
