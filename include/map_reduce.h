@@ -7,18 +7,18 @@
 #include <thread>
 #include <utility>  // std::pair
 
-#define BLOCK_SIZE 131072
-
 namespace mare_nostrum {
+    enum class mapperStatus {
+        FREE,
+        BUSY,
+        DONE
+    };
+
+    constexpr std::size_t BLOCK_SIZE = 131072;
+
     class MapReduce {
     public:
         typedef std::vector<std::pair<std::string, int>> map_type;
-
-        enum mapperStatus {
-            FREE,
-            BUSY,
-            DONE
-        };
 
         MapReduce() = default;
 
@@ -39,22 +39,21 @@ namespace mare_nostrum {
 
         // would be fine to rewrite as template function with std::string_view and Iterable instead of std::vector
         void setReducer(std::function<std::vector<std::pair<std::string, int>>
-                                      (const std::vector<std::pair<std::string, std::vector<int>>> &)> &reducer);
+                (const std::vector<std::pair<std::string, std::vector<int>>> &)> &reducer);
 
         void start();
 
     private:
-        // YOUR CODE HERE
         std::function<std::vector<std::pair<std::string, int>>
-                      (const std::string &)>* mapper_{};
+                (const std::string &)> mapper_{};
         std::function<std::vector<std::pair<std::string, int>>
-                      (const std::vector<std::pair<std::string, std::vector<int>>> &)>* reducer_{};
+                (const std::vector<std::pair<std::string, std::vector<int>>> &)> reducer_{};
         uintmax_t file_size_{};
         std::string tmp_dir_;
         std::string output_dir_;
         std::string big_file_ = "big_file.txt";
         std::string input_file_;
-        std::vector<int> mapper_status;                             // Current mapper state
+        std::vector<mapperStatus> mapper_status;                             // Current mapper state
         std::size_t max_simultaneous_workers_{};
         std::vector<std::vector<char>> reducer_chars;               // Range of chars for each reducer
         std::vector<std::vector<std::pair<std::string, int>>> mapper_result;
@@ -62,15 +61,15 @@ namespace mare_nostrum {
         std::size_t num_reducers_{};      // Number of reducers
         std::mutex t_lock;
 
-        int GetFreeMapperIndex();
+        int getFreeMapperIndex();
 
         std::string getSplit(const char *mapped_data, int &offset, int current_split) const;
 
-        void Map(const std::string &split, int mapper_index);
+        void map(const std::string &split, int mapper_index);
 
-        void Reduce(int reducer_index);
+        void reduce(int reducer_index);
 
-        void CalculateRangeOfKeysForReducers();
+        void calculateRangeOfKeysForReducers();
     };
 }
 
