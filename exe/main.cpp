@@ -6,8 +6,8 @@
 using namespace mare_nostrum;
 
 int main() {
-    mapReduce obj;
-    obj.setInputFiles("../data/file.txt");
+    MapReduce obj;
+    obj.setInputFiles("../data/file10000.txt");
     obj.setMaxSimultaneousWorkers(std::thread::hardware_concurrency());
     obj.setNumReducers(4);
     obj.setTmpDir("../tmp/");
