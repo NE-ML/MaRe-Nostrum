@@ -208,5 +208,4 @@ namespace mare_nostrum {
             }
         }
     }
-
 }  // namespace mare_nostrum
