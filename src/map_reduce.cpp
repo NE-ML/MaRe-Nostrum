@@ -181,18 +181,11 @@ namespace mare_nostrum {
     }
 
     void mapReduce::calculateRangeOfKeysForReducers() {
-        std::vector<char> alphabet { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-                                        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
-        const int alphabet_size = 26;
-        std::vector<int> reducer_sizes(num_reducers_, alphabet_size / (int)num_reducers_);
-        for (int i = 0; i < alphabet_size % num_reducers_; ++i) {
-            ++(reducer_sizes[i]);
-        }
-
-        int k = 0;
-        for (int i = 0; i < reducer_sizes.size(); ++i) {
-            for (int j = 0; j < reducer_sizes[i]; ++j) {
-                reducer_chars[i].push_back(alphabet[k++]);
+        for (size_t i = 0; i < num_reducers_; ++i) {
+            size_t range_begin = i * 26 / num_reducers_;
+            size_t range_end = (i + 1) * 26 / num_reducers_ - 1;
+            for (size_t j = range_begin; j <= range_end; ++j) {
+                reducer_chars[i].push_back(char(97 + j));
             }
         }
     }
