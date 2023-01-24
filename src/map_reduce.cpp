@@ -18,15 +18,15 @@ namespace mare_nostrum {
     void MapReduce::setMaxSimultaneousWorkers(std::size_t max_simultaneous_workers) {
         max_simultaneous_workers_ = max_simultaneous_workers;
         mapper_status.resize(max_simultaneous_workers_, FREE);
-        mapped_data_for_reducer.resize(max_simultaneous_workers_);
+//        mapped_data_for_reducer.resize(max_simultaneous_workers_);
     }
 
     void MapReduce::setNumReducers(std::size_t num_reducers) {
         num_reducers_ = num_reducers;
         reducer_chars.resize(num_reducers_);
-        for (int i = 0; i < mapped_data_for_reducer.size(); ++i) {
-            mapped_data_for_reducer[i].resize(num_reducers_);
-        }
+//        for (int i = 0; i < mapped_data_for_reducer.size(); ++i) {
+//            mapped_data_for_reducer[i].resize(num_reducers_);
+//        }
         CalculateRangeOfKeysForReducers();
     }
 
@@ -59,7 +59,7 @@ namespace mare_nostrum {
             }
 
             mapper_status[index] = BUSY;
-            threads[index] = std::thread(&MapReduce::Map, this, split, index);
+            threads[index] = std::thread(&MapReduce::Map, this, split, current_split-1);
         }
 
         for (int i = 0; i < max_simultaneous_workers_; ++i) {
@@ -111,24 +111,19 @@ namespace mare_nostrum {
 
     void MapReduce::Reduce(const int reducer_index) {
         std::vector<std::pair<std::string, std::vector<int>>> merged_data;
-        for (int mapper_i = 0; mapper_i < max_simultaneous_workers_; ++mapper_i) {
-//        for (int mapper_i = 0; mapper_i < mapped_data_for_reducer.size(); ++mapper_i) {
+        for (int mapper_i = 0; mapper_i < mapped_data_for_reducer.size(); ++mapper_i) {
             for (auto &pair: mapped_data_for_reducer[mapper_i][reducer_index]) {
-                bool same = false;
+                bool exist = false;
                 for (auto &pair_in_merged_list: merged_data) {
                     if (pair_in_merged_list.first == pair.first) {
                         pair_in_merged_list.second.push_back(pair.second);
-                        same = true;
+                        exist = true;
                         break;
                     }
                 }
-                if (!same) {
+                if (!exist) {
                     merged_data.emplace_back(pair.first, std::initializer_list<int>{pair.second});
                 }
-            }
-            if (reducer_index == 0) {
-                std::cout << mapper_i << " - " << merged_data[3].first <<
-                        ": " << merged_data[3].second[mapper_i] << std::endl;
             }
         }
 
@@ -149,10 +144,11 @@ namespace mare_nostrum {
                   });
 
 //        t_lock.lock();
-//        if (mapped_data_for_reducer.size() == mapped_data_for_reducer.capacity()) {
+//        if (mapped_data_for_reducer.size() == mapper_index) {
 //            mapped_data_for_reducer.resize(mapped_data_for_reducer.size() * 2);
 //        }
 //        t_lock.unlock();
+        std::vector<std::vector<std::pair<std::string, int>>> mapped_splitted_data;
 
         long range_begin = 0;
         for (int reducer_i = 0; reducer_i < num_reducers_; ++reducer_i) {
@@ -166,18 +162,20 @@ namespace mare_nostrum {
                           return false;
                        });
             range_end += range_begin;
-            t_lock.lock();
-//            auto mappred_data_for_reducer_i = map_type(map_result.begin() + range_begin, map_result.begin() + range_end);
-//            if (reducer_i == 0) {
-//                mapped_data_for_reducer.push_back()
-//            }
-//            mapped_data_for_reducer[mapped_data_for_reducer.size() - 1].emplace_back(map_result.begin() + range_begin, map_result.begin() + range_end);
-            mapped_data_for_reducer[mapper_index][reducer_i] =
-                    map_type(map_result.begin() + range_begin, map_result.begin() + range_end);
-            t_lock.unlock();
+//            t_lock.lock();
+            mapped_splitted_data.emplace_back(map_result.begin() + range_begin, map_result.begin() + range_end);
+//            mapped_data_for_reducer[mapper_index].emplace_back(map_result.begin() + range_begin, map_result.begin() + range_end);
+//            mapped_data_for_reducer[mapper_index][reducer_i] =
+//                    map_type(map_result.begin() + range_begin, map_result.begin() + range_end);
+//            t_lock.unlock();
             range_begin = range_end;
         }
         std::cout << mapper_index << " - " << map_result[3].first << ": " << map_result[3].second << std::endl;
+
+        t_lock.lock();
+        mapped_data_for_reducer.emplace_back(mapped_splitted_data);
+        t_lock.unlock();
+
         mapper_status[mapper_index] = DONE;
     }
 
