@@ -11,6 +11,10 @@ std::vector<std::pair<std::string, int>> Mapper::operator()(const std::string &s
                 ++word_len;
             }
             std::string word = str.substr(i, word_len);
+            // Чтобы все слова начинались с маленькой буквы
+            if (std::isupper(word[0])) {
+                word[0] = std::tolower(word[0]);
+            }
             i += word_len;
             bool unique = true;
             // If word is NOT new
